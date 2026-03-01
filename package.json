@@ -30,6 +30,7 @@
         "glob": "^10.3.10",
         "micromatch": "^4.0.5",
         "ora": "^5.4.1",
+        "pdf-parse": "^2.4.5",
         "tree-kill": "^1.2.2"
     },
     "devDependencies": {
