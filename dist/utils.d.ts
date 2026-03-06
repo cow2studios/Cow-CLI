@@ -1,3 +1,5 @@
+import * as readline from "readline";
+export declare const rl: readline.Interface;
 export declare function getProjectRoot(): string;
 export declare function projectPath(...segments: string[]): string;
 export declare function cowInfoPath(...segments: string[]): string;

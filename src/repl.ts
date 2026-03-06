@@ -1,11 +1,10 @@
-import * as readline from "readline";
 import chalk from "chalk";
 import ora from "ora";
 import { OllamaMessage, streamChat } from "./ollama";
 import { reindex } from "./context";
 import { buildSystemPrompt } from "./prompt";
 import { processToolCalls } from "./tools";
-import { loadCowAutoConfig } from "./utils";
+import { loadCowAutoConfig, rl } from "./utils";
 import {
   Session,
   appendMessage,
@@ -14,12 +13,9 @@ import {
   getOrCreateLatestSession,
 } from "./session";
 
-// Maximum context budget in characters (~4096 tokens at ~4 chars/token)
 const MAX_CONTEXT_CHARS = 14000;
-// Maximum consecutive error-recovery iterations before halting
 const MAX_ERROR_ITERATIONS = 5;
 
-// Start the interactive REPL loop
 export async function startRepl(): Promise<void> {
   let session: Session = getOrCreateLatestSession();
   const resuming = session.messages.length > 0;
@@ -31,16 +27,9 @@ export async function startRepl(): Promise<void> {
     );
   }
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: chalk.green("cow> "),
-  });
-
   let abortController: AbortController | null = null;
   let generating = false;
 
-  // Handle Ctrl+C: cancel generation or show exit hint
   rl.on("SIGINT", () => {
     if (generating && abortController) {
       abortController.abort();
@@ -62,7 +51,6 @@ export async function startRepl(): Promise<void> {
       return;
     }
 
-    // Handle meta-commands
     if (line === "/exit" || line === "/quit") {
       console.log(chalk.gray("Goodbye!"));
       rl.close();
@@ -104,22 +92,18 @@ export async function startRepl(): Promise<void> {
       return;
     }
 
-    // Re-index project for fresh context
     const { tree, exports } = await reindex();
     const systemPrompt = buildSystemPrompt(tree, exports);
 
-    // Add user message
     const userMsg: OllamaMessage = { role: "user", content: line };
     appendMessage(session, userMsg);
 
-    // Build messages array with system prompt and trimmed history
     const trimmed = trimMessages(session.messages, MAX_CONTEXT_CHARS);
     const messages: OllamaMessage[] = [
       { role: "system", content: systemPrompt },
       ...trimmed,
     ];
 
-    // Stream the response
     generating = true;
     abortController = new AbortController();
     process.stdout.write(chalk.cyan("\ncow: "));
@@ -140,10 +124,8 @@ export async function startRepl(): Promise<void> {
     generating = false;
     console.log("");
 
-    // Save assistant message
     appendMessage(session, { role: "assistant", content: fullResponse });
 
-    // Process tool calls in the response with autonomous error recovery
     const config = loadCowAutoConfig();
     let errorIterations = 0;
     let lastResponse = fullResponse;
@@ -156,7 +138,6 @@ export async function startRepl(): Promise<void> {
       console.log(chalk.white(results));
       console.log(chalk.gray("--- End Results ---\n"));
 
-      // Check for errors in tool results
       const hasError =
         results.includes("Command failed") || results.includes("Error:");
       if (hasError && config.autoErrorRecovery) {
@@ -173,7 +154,6 @@ export async function startRepl(): Promise<void> {
         errorIterations = 0;
       }
 
-      // Feed tool results back to the LLM for continuation
       const toolMsg: OllamaMessage = { role: "user", content: `Tool results:\n${results}` };
       appendMessage(session, toolMsg);
       const continueMessages: OllamaMessage[] = [

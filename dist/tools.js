@@ -45,7 +45,6 @@ const path = __importStar(require("path"));
 const chalk_1 = __importDefault(require("chalk"));
 const utils_1 = require("./utils");
 const executor_1 = require("./executor");
-// Parse tool calls from the assistant's message text using XML-style tags
 function parseToolCalls(text) {
     const calls = [];
     const toolRegex = /<tool\s+name="(\w+)">([\s\S]*?)<\/tool>/g;
@@ -57,13 +56,17 @@ function parseToolCalls(text) {
         const argRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
         let argMatch;
         while ((argMatch = argRegex.exec(body)) !== null) {
-            args[argMatch[1]] = argMatch[2].trim();
+            let val = argMatch[2].trim();
+            val = val.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+            if (argMatch[1] === "content") {
+                val = val.replace(/^```[\w]*\n/, "").replace(/\n```$/, "");
+            }
+            args[argMatch[1]] = val;
         }
         calls.push({ tool, args });
     }
     return calls;
 }
-// Execute a single tool call and return the result text
 async function executeTool(call) {
     const root = (0, utils_1.getProjectRoot)();
     switch (call.tool) {
@@ -131,7 +134,6 @@ async function executeTool(call) {
             return `Unknown tool: ${call.tool}`;
     }
 }
-// Recursively search files for content matching a query string
 function searchDir(dir, root, query, results, depth) {
     if (depth > 6 || results.length > 30)
         return;
@@ -163,12 +165,10 @@ function searchDir(dir, root, query, results, depth) {
                 }
             }
             catch {
-                // skip binary / unreadable files
             }
         }
     }
 }
-// Build the tool-description block injected into the system prompt
 function toolDescriptions() {
     return `You have access to the following tools. To use a tool, output an XML block EXACTLY like the examples.
 
@@ -200,9 +200,9 @@ Rules:
 - You may call multiple tools in one response.
 - After tool results are returned, continue your reasoning.
 - For file edits, always write the COMPLETE file content.
+- NEVER use triple backticks (\`\`\`) to show code meant for a file. YOU MUST use the write_file tool.
 - Never fabricate tool results.`;
 }
-// Process all tool calls in an assistant message and return results as a user message
 async function processToolCalls(assistantText) {
     const calls = parseToolCalls(assistantText);
     if (calls.length === 0)

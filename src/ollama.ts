@@ -4,7 +4,7 @@ import chalk from "chalk";
 import ora from "ora";
 
 const OLLAMA_HOST = "http://127.0.0.1:11434";
-const DEFAULT_MODEL = "qwen2.5-coder:7b";
+const DEFAULT_MODEL = "qwen3:8b";
 
 let ollamaProcess: ChildProcess | null = null;
 

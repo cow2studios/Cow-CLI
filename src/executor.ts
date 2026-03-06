@@ -1,11 +1,9 @@
 import * as fs from "fs";
-import * as readline from "readline";
 import { spawn } from "child_process";
 import micromatch from "micromatch";
 import chalk from "chalk";
-import { loadCowAutoConfig, isDestructiveCommand, truncate } from "./utils";
+import { loadCowAutoConfig, isDestructiveCommand, truncate, rl } from "./utils";
 
-// Execute a shell command and return its combined output
 export function runCommand(
   cmd: string,
   cwd: string
@@ -32,23 +30,18 @@ export function runCommand(
   });
 }
 
-// Prompt the user for Y/N confirmation in the terminal
 function askConfirmation(question: string): Promise<boolean> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
-      rl.close();
       resolve(answer.trim().toLowerCase().startsWith("y"));
     });
   });
 }
 
-// Determine if a command is auto-approved based on .cowauto patterns
 function isAutoApproved(cmd: string, patterns: string[]): boolean {
   return patterns.some((pattern) => micromatch.isMatch(cmd, pattern));
 }
 
-// Execute a command with safety checks and optional user confirmation
 export async function safeExecute(
   cmd: string,
   cwd: string

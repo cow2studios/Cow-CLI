@@ -5,16 +5,13 @@ import { getProjectRoot, truncate } from "./utils";
 import { safeExecute, runCommand } from "./executor";
 import { OllamaMessage } from "./ollama";
 
-// All tool names the LLM can invoke
 export type ToolName = "read_file" | "write_file" | "run_command" | "list_dir" | "search_files";
 
-// Schema for a single tool call parsed from assistant output
 export interface ToolCall {
   tool: ToolName;
   args: Record<string, string>;
 }
 
-// Parse tool calls from the assistant's message text using XML-style tags
 export function parseToolCalls(text: string): ToolCall[] {
   const calls: ToolCall[] = [];
   const toolRegex = /<tool\s+name="(\w+)">([\s\S]*?)<\/tool>/g;
@@ -26,14 +23,18 @@ export function parseToolCalls(text: string): ToolCall[] {
     const argRegex = /<(\w+)>([\s\S]*?)<\/\1>/g;
     let argMatch: RegExpExecArray | null;
     while ((argMatch = argRegex.exec(body)) !== null) {
-      args[argMatch[1]] = argMatch[2].trim();
+      let val = argMatch[2].trim();
+      val = val.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+      if (argMatch[1] === "content") {
+        val = val.replace(/^```[\w]*\n/, "").replace(/\n```$/, "");
+      }
+      args[argMatch[1]] = val;
     }
     calls.push({ tool, args });
   }
   return calls;
 }
 
-// Execute a single tool call and return the result text
 export async function executeTool(call: ToolCall): Promise<string> {
   const root = getProjectRoot();
   switch (call.tool) {
@@ -94,7 +95,6 @@ export async function executeTool(call: ToolCall): Promise<string> {
   }
 }
 
-// Recursively search files for content matching a query string
 function searchDir(
   dir: string,
   root: string,
@@ -126,13 +126,11 @@ function searchDir(
           }
         }
       } catch {
-        // skip binary / unreadable files
       }
     }
   }
 }
 
-// Build the tool-description block injected into the system prompt
 export function toolDescriptions(): string {
   return `You have access to the following tools. To use a tool, output an XML block EXACTLY like the examples.
 
@@ -164,10 +162,10 @@ Rules:
 - You may call multiple tools in one response.
 - After tool results are returned, continue your reasoning.
 - For file edits, always write the COMPLETE file content.
+- NEVER use triple backticks (\`\`\`) to show code meant for a file. YOU MUST use the write_file tool.
 - Never fabricate tool results.`;
 }
 
-// Process all tool calls in an assistant message and return results as a user message
 export async function processToolCalls(
   assistantText: string
 ): Promise<{ results: string; hadCalls: boolean }> {

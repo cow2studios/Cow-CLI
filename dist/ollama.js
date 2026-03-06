@@ -44,7 +44,7 @@ const child_process_1 = require("child_process");
 const chalk_1 = __importDefault(require("chalk"));
 const ora_1 = __importDefault(require("ora"));
 const OLLAMA_HOST = "http://127.0.0.1:11434";
-const DEFAULT_MODEL = "qwen2.5-coder:7b";
+const DEFAULT_MODEL = "qwen3:8b";
 let ollamaProcess = null;
 // Ping the Ollama API to check if it is reachable
 function pingOllama() {

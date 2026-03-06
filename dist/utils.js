@@ -36,6 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.rl = void 0;
 exports.getProjectRoot = getProjectRoot;
 exports.projectPath = projectPath;
 exports.cowInfoPath = cowInfoPath;
@@ -49,26 +50,27 @@ exports.truncate = truncate;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const chalk_1 = __importDefault(require("chalk"));
-// Resolve the project root directory (cwd)
+const readline = __importStar(require("readline"));
+exports.rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: chalk_1.default.green("cow> "),
+});
 function getProjectRoot() {
     return process.cwd();
 }
-// Resolve a path relative to the project root
 function projectPath(...segments) {
     return path.join(getProjectRoot(), ...segments);
 }
-// Resolve a path inside the .cowinfo directory
 function cowInfoPath(...segments) {
     return path.join(getProjectRoot(), ".cowinfo", ...segments);
 }
-// Ensure the .cowinfo directory exists
 function ensureCowInfoDir() {
     const dir = cowInfoPath();
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
 }
-// Ensure .cowinfo/ is listed in .gitignore
 function ensureGitignore() {
     const gitignorePath = projectPath(".gitignore");
     const entry = ".cowinfo/";
@@ -82,7 +84,6 @@ function ensureGitignore() {
         fs.writeFileSync(gitignorePath, entry + "\n", "utf-8");
     }
 }
-// Read the .cowignore file and return an array of patterns
 function loadCowIgnorePatterns() {
     const ignorePath = projectPath(".cowignore");
     if (!fs.existsSync(ignorePath))
@@ -112,7 +113,6 @@ function loadCowAutoConfig() {
     }
     return config;
 }
-// Print a styled banner at startup
 function printBanner() {
     const textArt = chalk_1.default.cyan.bold(`
    ____    ___   __        __     ____   _     ___ 
@@ -124,7 +124,6 @@ function printBanner() {
     console.log(textArt);
     console.log(chalk_1.default.gray("  Local-first AI coding assistant powered by Ollama Built by Cow2Studios\n"));
 }
-// Destructive command patterns that always require explicit confirmation
 const DESTRUCTIVE_PATTERNS = [
     /\brm\s+(-\w*\s+)*-?\w*r\w*f/i,
     /\brm\s+-rf\b/i,
@@ -137,11 +136,9 @@ const DESTRUCTIVE_PATTERNS = [
     /\bdrop\s+database\b/i,
     /\bdrop\s+table\b/i,
 ];
-// Check if a command looks destructive
 function isDestructiveCommand(cmd) {
     return DESTRUCTIVE_PATTERNS.some((p) => p.test(cmd));
 }
-// Truncate a string to a maximum token-approximate length for context window savings
 function truncate(str, maxChars) {
     if (str.length <= maxChars)
         return str;
